@@ -36,6 +36,10 @@ public sealed class MainForm : Form
             "Fix selected issues",
             "A .reg backup of every affected key is saved first (Settings → Restore)."));
 
+        AddPage("Startup", new StartupPage(StartupManager.CreateDefault(reg)));
+        AddPage("Uninstall", new UninstallPage(new AppManager(reg)));
+        AddPage("Settings", new SettingsPage(settings, registryCleaner));
+
         Show("Cleaner");
     }
 
