@@ -10,7 +10,7 @@ public sealed class SettingsPage : UserControl
         Dock = DockStyle.Fill;
         Padding = new Padding(12);
 
-        var days = new NumericUpDown { Minimum = 0, Maximum = 365, Value = settings.LogRetentionDays, Width = 70 };
+        var days = new NumericUpDown { Minimum = 1, Maximum = 365, Value = settings.LogRetentionDays, Width = 70 };
         var save = new Button { Text = "Save", AutoSize = true };
         save.Click += (_, _) =>
         {

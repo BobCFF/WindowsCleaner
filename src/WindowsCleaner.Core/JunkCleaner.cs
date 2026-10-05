@@ -10,7 +10,7 @@ public interface IRecycleBin
 
 public sealed class ShellRecycleBin : IRecycleBin
 {
-    [StructLayout(LayoutKind.Sequential, Pack = 4)]
+    [StructLayout(LayoutKind.Sequential)]
     private struct SHQUERYRBINFO
     {
         public uint cbSize;
@@ -35,7 +35,7 @@ public sealed class ShellRecycleBin : IRecycleBin
     public void Empty()
     {
         var hr = SHEmptyRecycleBin(IntPtr.Zero, null, NoConfirmation | NoProgressUi | NoSound);
-        if (hr != 0) Marshal.ThrowExceptionForHR(hr);
+        if (hr != 0 && hr != unchecked((int)0x8000FFFF)) Marshal.ThrowExceptionForHR(hr);
     }
 }
 
@@ -60,8 +60,8 @@ public sealed class JunkCleaner : ICleaner
     {
         var items = (await _files.ScanAsync(ct)).ToList();
         long bin = 0;
-        try { bin = _bin.GetSizeBytes(); } catch { /* treat as empty */ }
-        if (bin > 0) items.Add(new CleanItem(RecycleBinId, "Windows", "Recycle Bin", bin));
+        try { bin = await Task.Run(_bin.GetSizeBytes, ct); } catch { /* treat as empty */ }
+        if (bin > 0) items.Add(new CleanItem(RecycleBinId, "Windows", "Recycle Bin", bin, SelectedByDefault: false));
         return items;
     }
 
@@ -74,13 +74,20 @@ public sealed class JunkCleaner : ICleaner
         progress?.Report("Recycle Bin");
         try
         {
-            _bin.Empty();
+            await Task.Run(_bin.Empty, ct);
             return result.Plus(new CleanResult(binItem.SizeBytes, 1, 0, []));
         }
         catch (Exception e)
         {
             return result.Plus(new CleanResult(0, 0, 1, [$"Recycle Bin: {e.Message}"]));
         }
+    }
+
+    /// <summary>TEMP can be redirected to a data folder; only treat it as junk if it is really named Temp/Tmp.</summary>
+    public static bool IsSafeTempFolder(string path)
+    {
+        var name = Path.GetFileName(Path.TrimEndingDirectorySeparator(path));
+        return name.Equals("Temp", StringComparison.OrdinalIgnoreCase) || name.Equals("Tmp", StringComparison.OrdinalIgnoreCase);
     }
 
     public static JunkCleaner CreateDefault(AppSettings settings)
@@ -98,9 +105,12 @@ public sealed class JunkCleaner : ICleaner
             f.Extension.Equals(".log", StringComparison.OrdinalIgnoreCase) ||
             f.Extension.Equals(".etl", StringComparison.OrdinalIgnoreCase);
 
-        FileTarget[] targets =
+        var tempOk = IsSafeTempFolder(temp);
+        List<FileTarget> targets = [];
+        if (tempOk)
+            targets.Add(new("junk.usertemp", "Windows", "User temp files", () => FileEnumerator.Files(temp, "*", day)));
+        targets.AddRange(
         [
-            new("junk.usertemp", "Windows", "User temp files", () => FileEnumerator.Files(temp, "*", day)),
             new("junk.wintemp", "Windows", "Windows temp files", () => FileEnumerator.Files(W("Temp"), "*", day)),
             new("junk.prefetch", "Windows", "Prefetch", () => FileEnumerator.Files(W("Prefetch"), "*.pf")),
             new("junk.wucache", "Windows", "Windows Update download cache", () => FileEnumerator.Files(W("SoftwareDistribution", "Download"))),
@@ -108,9 +118,10 @@ public sealed class JunkCleaner : ICleaner
             new("junk.thumbs", "Windows", "Thumbnail cache", () => FileEnumerator.Files(explorer, "thumbcache_*.db")),
             new("junk.dumps", "Windows", "Crash dumps",
                 () => FileEnumerator.Files(crashDumps).Concat(FileEnumerator.Files(W("Minidump")))),
-        ];
+        ]);
 
-        var safe = new SafePaths([temp, W("Temp"), W("Prefetch"), W("SoftwareDistribution", "Download"),
+        List<string> roots = tempOk ? [temp] : [];
+        var safe = new SafePaths([.. roots, W("Temp"), W("Prefetch"), W("SoftwareDistribution", "Download"),
             W("Logs"), explorer, crashDumps, W("Minidump")]);
         return new JunkCleaner(targets, safe, new ShellRecycleBin());
     }

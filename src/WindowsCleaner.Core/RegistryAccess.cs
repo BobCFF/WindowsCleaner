@@ -70,7 +70,7 @@ public sealed class RegistryAccess : IRegistryAccess
 
     private static void RunReg(params string[] args)
     {
-        var psi = new ProcessStartInfo("reg.exe")
+        var psi = new ProcessStartInfo(Path.Combine(Environment.SystemDirectory, "reg.exe"))
         {
             CreateNoWindow = true,
             UseShellExecute = false,

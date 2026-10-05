@@ -16,6 +16,9 @@ public sealed class UninstallPage : UserControl
         _list.Columns.Add("Publisher", 200);
         _list.Columns.Add("Version", 100);
         _list.Columns.Add("Size", 90, HorizontalAlignment.Right);
+        _list.Columns.Add("Installed", 90);
+        _ = new ListViewColumnSorter(_list, (col, a, b) => col == 3
+            ? ((InstalledApp)a.Tag!).SizeBytes.CompareTo(((InstalledApp)b.Tag!).SizeBytes) : null);
 
         var refresh = new Button { Text = "Refresh", AutoSize = true };
         var uninstall = new Button { Text = "Uninstall…", AutoSize = true };
@@ -43,6 +46,7 @@ public sealed class UninstallPage : UserControl
                 row.SubItems.Add(a.Publisher);
                 row.SubItems.Add(a.Version);
                 row.SubItems.Add(a.SizeBytes > 0 ? SizeFormat.Format(a.SizeBytes) : "");
+                row.SubItems.Add(a.InstallDateDisplay);
                 _list.Items.Add(row);
             }
             _list.EndUpdate();
