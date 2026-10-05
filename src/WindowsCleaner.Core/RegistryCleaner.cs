@@ -188,6 +188,6 @@ public sealed class RegistryCleaner : ICleaner
             return end > 1 ? command[1..end] : null;
         }
         var i = command.IndexOf(".exe", StringComparison.OrdinalIgnoreCase);
-        return i > 0 ? command[..(i + 4)] : command.Split(' ')[0];
+        return i > 0 ? command[..(i + 4)] : null;
     }
 }

@@ -31,6 +31,16 @@ public class RegistryCleanerTests
     }
 
     [Fact]
+    public async Task Scan_skips_unquoted_non_exe_uninstall_command()
+    {
+        var reg = new FakeRegistry();
+        using var b = new TempDir();
+        reg.Add(LocalMachine, Uninstall + @"\Bat",
+            ("DisplayName", "Bat App"), ("UninstallString", @"C:\Program Files\App\uninst.bat /S"));
+        Assert.Empty(await Make(reg, b).ScanAsync());
+    }
+
+    [Fact]
     public async Task Scan_flags_missing_shared_dll_stale_app_path_and_dead_extension()
     {
         var reg = new FakeRegistry();
