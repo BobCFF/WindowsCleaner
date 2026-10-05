@@ -25,7 +25,7 @@ public sealed class MainForm : Form
 
         var settings = AppSettings.Load();
         var reg = new RegistryAccess();
-        var registryCleaner = new RegistryCleaner(reg, p => File.Exists(p) || Directory.Exists(p), AppPaths.BackupsDir);
+        var registryCleaner = new RegistryCleaner(reg, PathProbe.Exists, AppPaths.BackupsDir);
 
         AddPage("Cleaner", new CleanerPage(
             [JunkCleaner.CreateDefault(settings), BrowserCleaner.CreateDefault()],

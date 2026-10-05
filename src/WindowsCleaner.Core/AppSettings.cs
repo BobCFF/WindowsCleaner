@@ -9,7 +9,12 @@ public sealed class AppSettings
     public static AppSettings Load(string? path = null)
     {
         path ??= AppPaths.SettingsFile;
-        try { return JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(path)) ?? new(); }
+        try
+        {
+            var s = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(path)) ?? new();
+            s.LogRetentionDays = Math.Clamp(s.LogRetentionDays, 1, 365);
+            return s;
+        }
         catch { return new(); }
     }
 

@@ -16,6 +16,7 @@ public sealed class StartupPage : UserControl
         _list.Columns.Add("Status", 80);
         _list.Columns.Add("Source", 120);
         _list.Columns.Add("Command", 420);
+        _ = new ListViewColumnSorter(_list);
 
         var refresh = new Button { Text = "Refresh", AutoSize = true };
         var enable = new Button { Text = "Enable", AutoSize = true };

@@ -3,7 +3,13 @@ using Microsoft.Win32;
 
 namespace WindowsCleaner.Core;
 
-public sealed record InstalledApp(string Name, string Publisher, string Version, string InstallDate, long SizeBytes, string UninstallString);
+public sealed record InstalledApp(string Name, string Publisher, string Version, string InstallDate, long SizeBytes, string UninstallString)
+{
+    /// <summary>yyyy-MM-dd when the raw value is a valid yyyyMMdd date, otherwise the raw string.</summary>
+    public string InstallDateDisplay =>
+        DateTime.TryParseExact(InstallDate, "yyyyMMdd", System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var d) ? d.ToString("yyyy-MM-dd") : InstallDate;
+}
 
 public sealed class AppManager(IRegistryAccess reg)
 {
@@ -40,7 +46,7 @@ public sealed class AppManager(IRegistryAccess reg)
     /// <summary>Launches the app's own uninstaller. The extra outer quotes stop cmd.exe from stripping the
     /// first and last quote of a quoted path.</summary>
     public void Uninstall(InstalledApp app) =>
-        Process.Start(new ProcessStartInfo("cmd.exe")
+        Process.Start(new ProcessStartInfo(Path.Combine(Environment.SystemDirectory, "cmd.exe"))
         {
             Arguments = $"/c \"{app.UninstallString}\"",
             UseShellExecute = false,
