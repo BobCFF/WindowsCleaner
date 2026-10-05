@@ -31,8 +31,17 @@ public sealed class FileTargetCleaner : ICleaner
         {
             ct.ThrowIfCancellationRequested();
             var blocked = t.BlockedByProcess is { } p && _isRunning(p);
-            long size = blocked ? 0 : t.EnumerateFiles().Where(_safe.IsAllowed).Sum(SizeOf);
-            if (size == 0 && !blocked) continue;
+            long size = 0;
+            if (blocked)
+            {
+                // Don't measure locked data, but only surface the target if something is actually there.
+                if (!t.EnumerateFiles().Any(_safe.IsAllowed)) continue;
+            }
+            else
+            {
+                size = t.EnumerateFiles().Where(_safe.IsAllowed).Sum(SizeOf);
+                if (size == 0) continue;
+            }
             var desc = blocked ? $"{t.Description} (close {t.BlockedByProcess} first)" : t.Description;
             items.Add(new CleanItem(t.Id, t.Category, desc, size, t.SelectedByDefault && !blocked));
         }
