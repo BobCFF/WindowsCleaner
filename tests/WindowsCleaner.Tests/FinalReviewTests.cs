@@ -38,6 +38,15 @@ public class FinalReviewTests
         Assert.False(PathProbe.Exists(Path.Combine(t.Path, "missing.txt")));
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("foo.exe")]
+    [InlineData(@"relative\x.dll")]
+    public void PathProbe_assumes_exists_for_empty_or_non_rooted(string? p) =>
+        Assert.True(PathProbe.Exists(p));
+
     [Fact]
     public void PathProbe_assumes_exists_when_drive_not_mounted()
     {
