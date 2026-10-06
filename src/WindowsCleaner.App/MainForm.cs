@@ -11,6 +11,10 @@ public sealed class MainForm : Form
     };
     private readonly Panel _content = new() { Dock = DockStyle.Fill };
     private readonly Dictionary<string, Control> _pages = [];
+    private readonly MenuStrip _menu = new();
+    private readonly ToolStripMenuItem _navLeftItem = new("Navigation: Left");
+    private readonly ToolStripMenuItem _navTopItem = new("Navigation: Top");
+    private readonly AppSettings _settings;
 
     public MainForm()
     {
@@ -20,10 +24,17 @@ public sealed class MainForm : Form
         StartPosition = FormStartPosition.CenterScreen;
         Font = new Font("Segoe UI", 9.5f);
 
+        var settings = AppSettings.Load();
+        _settings = settings;
+
+        // Docking z-order: the control added last docks first, so Fill goes in first, then nav, then the menu.
         Controls.Add(_content);
         Controls.Add(_nav);
+        BuildMenu();
+        Controls.Add(_menu);
+        MainMenuStrip = _menu;
+        ApplyNavPosition(settings.NavPosition);
 
-        var settings = AppSettings.Load();
         var reg = new RegistryAccess();
         var registryCleaner = new RegistryCleaner(reg, PathProbe.Exists, AppPaths.BackupsDir);
 
@@ -41,6 +52,54 @@ public sealed class MainForm : Form
         AddPage("Settings", new SettingsPage(settings, registryCleaner));
 
         Show("Cleaner");
+    }
+
+    private void BuildMenu()
+    {
+        _navLeftItem.Click += (_, _) => ChooseNavPosition(NavPosition.Left);
+        _navTopItem.Click += (_, _) => ChooseNavPosition(NavPosition.Top);
+        var view = new ToolStripMenuItem("View");
+        view.DropDownItems.AddRange([_navLeftItem, _navTopItem]);
+        var exit = new ToolStripMenuItem("Exit");
+        exit.Click += (_, _) => Close();
+        var file = new ToolStripMenuItem("File");
+        file.DropDownItems.AddRange([view, new ToolStripSeparator(), exit]);
+        _menu.Items.Add(file);
+    }
+
+    private void ChooseNavPosition(NavPosition position)
+    {
+        ApplyNavPosition(position);
+        _settings.NavPosition = position;
+        try { _settings.Save(); }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, "Could not save the navigation setting: " + ex.Message,
+                "WindowsCleaner", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+    }
+
+    // Reconfigures the same _nav panel (and its same button instances); pages and the shown page are untouched.
+    private void ApplyNavPosition(NavPosition position)
+    {
+        _nav.SuspendLayout();
+        if (position == NavPosition.Top)
+        {
+            _nav.Dock = DockStyle.Top;
+            _nav.FlowDirection = FlowDirection.LeftToRight;
+            _nav.WrapContents = false;
+            _nav.Height = 56;
+        }
+        else
+        {
+            _nav.Dock = DockStyle.Left;
+            _nav.FlowDirection = FlowDirection.TopDown;
+            _nav.WrapContents = false;
+            _nav.Width = 150;
+        }
+        _nav.ResumeLayout(true);
+        _navLeftItem.Checked = position == NavPosition.Left;
+        _navTopItem.Checked = position == NavPosition.Top;
     }
 
     public void AddPage(string title, Control page)
