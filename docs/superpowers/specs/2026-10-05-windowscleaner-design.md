@@ -32,7 +32,9 @@ record CleanResult(long BytesFreed, int Deleted, int Skipped, IReadOnlyList<stri
 5. **AppManager** — lists installed apps from Uninstall keys with size/publisher/date; launches the app's own `UninstallString`.
 
 ## UI
-Left nav: Cleaner, Registry, Startup, Uninstall, Settings. Cleaner/Registry pages: checkbox tree grouped by category with sizes, **Analyze** and **Run Cleaner** buttons, progress bar, and a total. Startup/Uninstall pages: sortable list with action buttons.
+Horizontal icon toolbar under the menu bar: Cleaner, Registry, Startup, Uninstall, Settings, About (the selected page is highlighted). Cleaner/Registry pages: checkbox tree grouped by category with sizes, **Analyze** and **Run Cleaner** buttons, progress bar, and a total. Startup/Uninstall pages: sortable list with action buttons.
+
+About page: app name, version, repository link, and a **Check for updates** button (on click only) that queries the GitHub releases API and, if newer, offers an "Open download page" link to the validated release URL.
 
 ## Data flow
 Analyze runs `ScanAsync` on selected cleaners in the background and fills the list. User unticks items. Run Cleaner shows a confirmation with the total size; on confirm calls `CleanAsync` and reports freed space, skipped (locked/in-use) count, and errors. In-use files are skipped, never fatal.
@@ -42,7 +44,7 @@ Analyze runs `ScanAsync` on selected cleaners in the background and fills the li
 - Deletion is restricted to a hard-coded allowlist of roots (`SafePaths`); any path resolving outside is refused.
 - Symlinks and junctions are never followed or traversed.
 - Registry fixes always back up first; backup failure aborts the fix.
-- No network access, no telemetry.
+- No telemetry; the only network call is the user-initiated 'Check for updates' on the About page (GitHub releases API, no automatic download).
 - Settings persisted to `%LOCALAPPDATA%\WindowsCleaner\settings.json`.
 
 ## Testing
