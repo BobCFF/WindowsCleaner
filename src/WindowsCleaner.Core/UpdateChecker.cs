@@ -14,7 +14,7 @@ public abstract record UpdateResult
 }
 
 /// <summary>Queries the GitHub releases API on demand. Never downloads or opens anything.</summary>
-public sealed class UpdateChecker(HttpClient http)
+public sealed class UpdateChecker(HttpClient http, TimeSpan? timeout = null)
 {
     public const string LatestReleaseApi = "https://api.github.com/repos/BobCFF/WindowsCleaner/releases/latest";
     public static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
@@ -22,18 +22,19 @@ public sealed class UpdateChecker(HttpClient http)
     public async Task<UpdateResult> CheckAsync(Version current, CancellationToken ct = default)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        cts.CancelAfter(Timeout);
+        cts.CancelAfter(timeout ?? Timeout);
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, LatestReleaseApi);
-            request.Headers.UserAgent.Add(new ProductInfoHeaderValue("WindowsCleaner", current.ToString(3)));
+            request.Headers.UserAgent.Add(new ProductInfoHeaderValue("WindowsCleaner", Normalize(current).ToString(3)));
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
 
-            using var response = await http.SendAsync(request, cts.Token).ConfigureAwait(false);
+            using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token).ConfigureAwait(false);
             if (response.StatusCode == HttpStatusCode.NotFound) return new UpdateResult.NoReleases();
             if (!response.IsSuccessStatusCode) return new UpdateResult.Failed($"HTTP {(int)response.StatusCode}");
 
-            var body = await response.Content.ReadAsStringAsync(cts.Token).ConfigureAwait(false);
+            var body = await ReadLimitedAsync(response.Content, cts.Token).ConfigureAwait(false);
+            if (body is null) return new UpdateResult.Failed("Response too large");
             return Evaluate(body, current);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
@@ -42,6 +43,23 @@ public sealed class UpdateChecker(HttpClient http)
         }
         catch (OperationCanceledException) { return new UpdateResult.Failed("Cancelled"); }
         catch (Exception ex) { return new UpdateResult.Failed(ex.Message); }
+    }
+
+    public const int MaxResponseBytes = 1024 * 1024;
+
+    private static async Task<string?> ReadLimitedAsync(HttpContent content, CancellationToken ct)
+    {
+        if (content.Headers.ContentLength > MaxResponseBytes) return null;
+        await using var stream = await content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+        using var ms = new MemoryStream();
+        var buffer = new byte[8192];
+        int n;
+        while ((n = await stream.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
+        {
+            if (ms.Length + n > MaxResponseBytes) return null;
+            ms.Write(buffer, 0, n);
+        }
+        return System.Text.Encoding.UTF8.GetString(ms.ToArray());
     }
 
     private static UpdateResult Evaluate(string body, Version current)
@@ -72,7 +90,7 @@ public sealed class UpdateChecker(HttpClient http)
         root.TryGetProperty(name, out var e) && e.ValueKind == JsonValueKind.True;
 
     // Version("1.0") < Version("1.0.0") because unset parts are -1; compare on a 4-part basis.
-    private static Version Normalize(Version v) =>
+    public static Version Normalize(Version v) =>
         new(v.Major, v.Minor, Math.Max(v.Build, 0), Math.Max(v.Revision, 0));
 
     internal static bool TryParseTag(string? tag, out Version version)
@@ -97,7 +115,10 @@ public sealed class UpdateChecker(HttpClient http)
         if (u.Scheme != Uri.UriSchemeHttps || u.Host != "github.com" || !u.IsDefaultPort) return false;
         if (!string.IsNullOrEmpty(u.UserInfo)) return false;
         if (!u.AbsolutePath.StartsWith("/BobCFF/WindowsCleaner/", StringComparison.Ordinal)) return false;
-        if (u.AbsolutePath.Split('/').Contains("..")) return false;
+        // Uri already collapses literal and %2e%2e dot segments but not encoded slashes (..%2f); check the decoded path too.
+        var decoded = Uri.UnescapeDataString(u.AbsolutePath).Replace('\\', '/');
+        if (!decoded.StartsWith("/BobCFF/WindowsCleaner/", StringComparison.Ordinal)) return false;
+        if (decoded.Split('/').Any(seg => seg is ".." or ".")) return false;
         url = u.AbsoluteUri;
         return true;
     }

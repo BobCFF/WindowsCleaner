@@ -15,8 +15,8 @@ public sealed class NavToolbar : ToolStrip
     {
         Dock = DockStyle.Top;
         GripStyle = ToolStripGripStyle.Hidden;
-        ImageScalingSize = new Size(IconSize, IconSize);
-        Padding = new Padding(6, 2, 6, 2);
+        ImageScalingSize = new Size(Scale(IconSize), Scale(IconSize));
+        Padding = new Padding(Scale(6), Scale(2), Scale(6), Scale(2));
         Stretch = true;
     }
 
@@ -37,7 +37,7 @@ public sealed class NavToolbar : ToolStrip
             TextImageRelation = TextImageRelation.ImageAboveText,
             DisplayStyle = _iconFont is null ? ToolStripItemDisplayStyle.Text : ToolStripItemDisplayStyle.ImageAndText,
             AutoSize = false,
-            Size = new Size(84, 62),
+            Size = ButtonSize(),
             Alignment = alignRight ? ToolStripItemAlignment.Right : ToolStripItemAlignment.Left,
             Margin = new Padding(1),
         };
@@ -46,6 +46,10 @@ public sealed class NavToolbar : ToolStrip
         Items.Add(button);
         ApplyIcon(button, glyph);
     }
+
+    // Absolute (not incremental) sizing from the current DPI, so re-applying after a DPI change is idempotent.
+    private int Scale(int px) => (int)Math.Round(px * DeviceDpi / 96.0);
+    private Size ButtonSize() => new(Scale(84), Scale(62));
 
     public void Select(string title, bool raise = false)
     {
@@ -77,7 +81,12 @@ public sealed class NavToolbar : ToolStrip
     protected override void OnDpiChangedAfterParent(EventArgs e)
     {
         base.OnDpiChangedAfterParent(e);
-        foreach (var (b, glyph) in _items) ApplyIcon(b, glyph);
+        ImageScalingSize = new Size(Scale(IconSize), Scale(IconSize));
+        foreach (var (b, glyph) in _items)
+        {
+            b.Size = ButtonSize();
+            ApplyIcon(b, glyph);
+        }
     }
 
     protected override void Dispose(bool disposing)

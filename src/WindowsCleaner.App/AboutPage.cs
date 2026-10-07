@@ -22,7 +22,9 @@ public sealed class AboutPage : UserControl
         Padding = new Padding(24);
 
         var infoVersion = typeof(AboutPage).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-        var versionText = StripBuild(infoVersion) ?? typeof(AboutPage).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
+        var asmVersion = typeof(AboutPage).Assembly.GetName().Version;
+        var versionText = StripBuild(infoVersion)
+            ?? (asmVersion is null ? "1.0.0" : UpdateChecker.Normalize(asmVersion).ToString(3));
         _current = Version.TryParse(versionText.Split('-')[0], out var v) ? v : new Version(1, 0, 0);
 
         var title = new Label { Text = "WindowsCleaner", AutoSize = true, Font = new Font(Font.FontFamily, 20f, FontStyle.Bold) };
@@ -74,7 +76,7 @@ public sealed class AboutPage : UserControl
             switch (result)
             {
                 case UpdateResult.UpToDate:
-                    _status.Text = $"You're up to date (v{_current.ToString(3)})";
+                    _status.Text = $"You're up to date (v{UpdateChecker.Normalize(_current).ToString(3)})";
                     break;
                 case UpdateResult.UpdateAvailable u:
                     _status.Text = $"Update available: v{u.Latest}";

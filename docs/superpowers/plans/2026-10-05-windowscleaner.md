@@ -15,7 +15,7 @@
 - No deletion without a prior Analyze and an explicit confirmation.
 - Deletion only inside the hard-coded allowlist roots (`SafePaths`); symlinks/junctions are never followed or traversed.
 - Registry fixes always export a `.reg` backup first; backup failure aborts the fix.
-- No network access, no telemetry.
+- No telemetry; the only network call is the user-initiated update check on the About page.
 - Data lives in `%LOCALAPPDATA%\WindowsCleaner` (`settings.json`, `Backups\`).
 - Locked or in-use files are skipped and counted, never fatal.
 - Out of scope: scheduled cleaning, secure wipe, driver updater, tray icon, installer/auto-update.
